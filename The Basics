@@ -1,0 +1,103 @@
+# Creating a KEYSPACE with SimpleStrategy and a Replication Factor of 3.
+CREATE KEYSPACE shoutapp WITH REPLICATION = ('class' : 'SimpleStrategy', 'replication_factor' : 3);
+# Show keyspaces in cassandra.
+DESCRIBE KEYSPACES ;
+# Show a specified keyspace.
+DESCRIBE KEYSPACE shoutapp;
+# use a specific keyspace.
+USE shoutapp;
+
+# Lets create Tables in SQL.
+CREATE TABLE users(username text PRIMARY KEY, password text, email text, name text);
+
+# Gives all informations about a specific table.
+DESCRIBE TABLE users;  
+
+# Create the remaining Tables for the twitter similar app.
+CREATE TABLE following(username text PRIMARY KEY, followed text);
+
+CREATE TABLE followers(username text PRIMARY KEY, following text);
+
+CREATE TABLE shouts(shout_id uuid PRIMARY KEY, username text, body text);
+
+CREATE TABLE usershouts(username text, shout_id timeuuid, body text, PRIMARY KEY (username, shout_id));
+
+CREATE TABLE shoutwall (username text, shout_id timeuuid, posted_by text, body text, PRIMARY KEY (username,shout_id));
+
+# See availabe tables.
+DESCRIBE TABLES;
+
+# Inserting Data (A note here, password should be encrypted if its used for a real app ). 
+INSERT INTO users (username, password) VALUES ('devuser1','pass1')
+
+# Verifying Data.
+SELECT * FROM users;
+# We didn't specify mail and name, but we will add them later. Let's use a Batch Command.
+
+BEGIN BATCH
+INSERT INTO users (username,email, name, password) VALUES ('devuser2','usr2@m.com','user2','pass2')
+INSERT INTO users (username,email, name, password) VALUES ('devuser3','usr3@m.com','user3','pass3')
+INSERT INTO users (username,email, name, password) VALUES ('devuser4','usr4@m.com','user4','pass4')
+APPLY BATCH;
+
+# Verifying Data.
+SELECT * FROM users;
+
+INSERT INTO following (username, followed) VALUES ('devuser1','devuser3');
+
+# Show who a user is following.
+SELECT followed FROM following WHERE username = 'devuser1';
+
+INSERT INTO followers (username, following) VALUES ('devuser3','devuser1');
+
+# Show who is following a user.
+SELECT following FROM followers WHERE username = 'devuser3';
+
+# now() gives a uuid based on TIMESTAMP to uniquely identefy a shout.
+ INSERT INTO shouts (shout_id,username, body) VALUES (now(),'devuser1','Hello Cassandra !');
+ 
+# Show shouts.
+SELECT * FROM shouts; 
+
+# DELETE a record.
+DELETE FROM shouts WHERE shout_id='...' ;
+
+# Add multiple records to different tables.
+BEGIN BATCH
+INSERT INTO shouts (shout_id,username, body) VALUES (now(),'devuser2','Random Text')
+INSERT INTO usershouts (username,shout_id, body) VALUES ('devuser2',now(),'Random Text')
+INSERT INTO shoutwall (username,shout_id,posted_by body) VALUES ('devuser2',now(),'devuser1','Random')
+APPLY BATCH;
+
+# Show shoutwall.
+SELECT * FROM shoutwall;
+
+SELECT * FROM usershouts WHERE username = 'devuser2';
+
+SELECT dateOf(shout_id), posted_by, body FROM shoutwall WHERE username = 'devuser1' AND shout_id > minTimeuuid(2013-01-01) ORDER BY shout_id DESC;
+
+# UPDATING DATA. 
+
+UPDATE users SET email = 'dev1@m.com' WHERE username = 'devuser1';
+UPDATE users SET name = 'user1' WHERE username = 'devuser1';
+
+# Check
+SELECT * FROM users WHERE username = 'devuser1';
+
+# Adding Fields.
+ALTER TABLE users ADD age int;
+
+UPDATE users SET age = 32 ZHERE username = 'devuser1';
+# Check
+SELECT * FROM users WHERE username = 'devuser1';
+
+# Deleting Fields.
+ALTER TABLE users DROP age;
+
+# this throws an error because we didn''t specify that password field is a primary key.
+SELECT * FROM users WHERE password = 'pass1'; 
+
+# a fix for the previous problem.
+CREATE INDEX ON users(password);
+
+SELECT * FROM users WHERE password = 'pass1'; 
